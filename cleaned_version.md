@@ -99,7 +99,9 @@
 
 * Также представляется интересным изучить подходы Point Patchiness, Reconstruction Skew и Centroid Distribution. Что касается последнего,
 я подозреваю, что центроиды могут коррелировать с особенностями ЯМР, и мы могли бы проверить, насколько они изотропны
-(например, с помощью Eigenvalue Early Enrichment).  <добавить папир>
+(например, с помощью Eigenvalue Early Enrichment).
+
+* [Статья про это](https://arxiv.org/pdf/2406.12159)
 
 ## Анализ attention heads
 
