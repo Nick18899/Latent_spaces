@@ -97,7 +97,7 @@
 
 * Визуальный анализ
 
-* Также представляется интересным изучить подходы Point Patchiness, Reconstruction Skew и Centroid Distribution. Что касается последнего,
+* Также представляется интересным изучить подходы Point Patchiness, Reconstruction Skew и Centroid Distribution ([статья](https://arxiv.org/pdf/2406.12159)). Что касается последнего,
 я подозреваю, что центроиды могут коррелировать с особенностями ЯМР, и мы могли бы проверить, насколько они изотропны
 (например, с помощью Eigenvalue Early Enrichment).
 
@@ -109,7 +109,7 @@
 
 ## AE
 
-* Activation maximization <добавить папир>
+* [Activation maximization](https://aclanthology.org/2023.blackboxnlp-1.20.pdf)
 
 * Sparce ae над декодером + стиринг.
 
