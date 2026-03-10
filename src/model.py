@@ -31,7 +31,11 @@ def generate_batch(
     tokenizer: 'SentencePieceProcessor',
     max_tokens: int = 200,
     device: torch.device = torch.device("cpu"),
-) -> typing.List[str]:
+    return_decoder_states: bool = False,
+) -> typing.Union[
+    typing.List[str],
+    typing.Tuple[typing.List[str], typing.List[torch.Tensor]]
+]:
     model.eval()
 
     batch_size = src_c_nmr["spectrum"].shape[0]
@@ -69,8 +73,23 @@ def generate_batch(
         idxs_list.append(filtered)
 
     smiles_list = tokenizer.decode(idxs_list)
-    return smiles_list
+    if not return_decoder_states:
+            return smiles_list
+        # SECOND pass: run once with final sequences to get decoder states
+        # (no generation loop, just a single forward where model returns states)
+    prev_flag = getattr(model, "return_decoder_states", False)
+    model.return_decoder_states = True
+    with torch.inference_mode():
+        logits, decoder_states = model(
+            src_c_nmr=src_c_nmr,
+            src_h_nmr=src_h_nmr,
+            tgt=idxs,
+        )
+    model.return_decoder_states = prev_flag
+        # decoder_states: List[Tensor], each [B, T, d_model] for each decoder layer
+    return smiles_list, decoder_states
 
+    
 class FourierEmbedding(torch.nn.Module):
     def __init__(
         self,
@@ -313,7 +332,8 @@ class Transformer(torch.nn.Module):
         d_ff : int, 
         max_seq_length : int, 
         dropout : float,
-        smiles_pad_token : int
+        smiles_pad_token : int, 
+        return_decoder_states : bool = False
     ) -> None:
         super(Transformer, self).__init__()
         
@@ -343,6 +363,7 @@ class Transformer(torch.nn.Module):
             torch.tril(torch.ones(1, max_seq_length, max_seq_length, dtype=torch.bool)),
             persistent=False,
         )
+        self.return_decoder_states = return_decoder_states
 
     def generate_mask(
         self, 
@@ -383,6 +404,8 @@ class Transformer(torch.nn.Module):
             enc_hydrogen_output = enc_layer(enc_hydrogen_output, src_hydrogen_mask)
         
         dec_output = tgt_embedded
+        decoder_states: typing.List[torch.Tensor] = []
+
         for dec_layer in self.decoder_layers:
             dec_output = dec_layer(
                 x=dec_output, 
@@ -392,6 +415,10 @@ class Transformer(torch.nn.Module):
                 src_hydrogen_mask=src_hydrogen_mask, 
                 tgt_mask=tgt_mask
             )
+            decoder_states.append(dec_output)   # тут сейвим хидден стейты
 
         output = self.fc(dec_output)
-        return output
+        if self.return_decoder_states:
+            return output, decoder_states
+        else:
+            return output
