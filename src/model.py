@@ -74,20 +74,19 @@ def generate_batch(
 
     smiles_list = tokenizer.decode(idxs_list)
     if not return_decoder_states:
-            return smiles_list
-        # SECOND pass: run once with final sequences to get decoder states
-        # (no generation loop, just a single forward where model returns states)
-    prev_flag = getattr(model, "return_decoder_states", False)
-    model.return_decoder_states = True
+        return smiles_list
+    
+    # SECOND pass: run once with final sequences to get decoder states
+    # (no generation loop, just a single forward where model returns states)
     with torch.inference_mode():
         logits, decoder_states = model(
             src_c_nmr=src_c_nmr,
             src_h_nmr=src_h_nmr,
             tgt=idxs,
+            return_decoder_states=True
         )
-    model.return_decoder_states = prev_flag
         # decoder_states: List[Tensor], each [B, T, d_model] for each decoder layer
-    return smiles_list, decoder_states
+        return smiles_list, decoder_states
 
     
 class FourierEmbedding(torch.nn.Module):
@@ -333,7 +332,6 @@ class Transformer(torch.nn.Module):
         max_seq_length : int, 
         dropout : float,
         smiles_pad_token : int, 
-        return_decoder_states : bool = False
     ) -> None:
         super(Transformer, self).__init__()
         
@@ -363,7 +361,6 @@ class Transformer(torch.nn.Module):
             torch.tril(torch.ones(1, max_seq_length, max_seq_length, dtype=torch.bool)),
             persistent=False,
         )
-        self.return_decoder_states = return_decoder_states
 
     def generate_mask(
         self, 
@@ -383,7 +380,8 @@ class Transformer(torch.nn.Module):
         self, 
         src_c_nmr : typing.Dict[str, torch.Tensor], 
         src_h_nmr : typing.Dict[str, torch.Tensor],
-        tgt : torch.Tensor
+        tgt : torch.Tensor,
+        return_decoder_states : bool = False
     ):
         src_carbon_mask, src_hydrogen_mask, tgt_mask = self.generate_mask(
             src_carbon_spectrum=src_c_nmr['spectrum'],
@@ -418,7 +416,7 @@ class Transformer(torch.nn.Module):
             decoder_states.append(dec_output)   # тут сейвим хидден стейты
 
         output = self.fc(dec_output)
-        if self.return_decoder_states:
+        if return_decoder_states:
             return output, decoder_states
         else:
             return output
